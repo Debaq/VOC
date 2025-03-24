@@ -112,6 +112,37 @@ static esp_err_t admin_handler(httpd_req_t *req) {
   return httpd_resp_sendstr(req, adminHtml.c_str());
 }
 
+// Manejador para la configuración WiFi
+static esp_err_t wifi_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "text/html");
+  
+  if (hasSD && fileExists(HTML_WIFI)) {
+    File file = SD_MMC.open(HTML_WIFI, FILE_READ);
+    if (file) {
+      // Enviar el archivo en chunks
+      size_t bytesRead;
+      while ((bytesRead = file.read(tempBuffer, BUFFER_SIZE)) > 0) {
+        httpd_resp_send_chunk(req, (const char*)tempBuffer, bytesRead);
+      }
+      file.close();
+      httpd_resp_send_chunk(req, NULL, 0);
+      return ESP_OK;
+    }
+  }
+  
+  // HTML de respaldo para configuración WiFi
+  String wifiHtml = "<!DOCTYPE html><html><head><title>ESP32-CAM WiFi Config</title></head><body>";
+  wifiHtml += "<h1>Configuración WiFi</h1>";
+  wifiHtml += "<form action='/save-wifi' method='post'>";
+  wifiHtml += "<label>SSID: <input type='text' name='ssid'></label><br>";
+  wifiHtml += "<label>Password: <input type='password' name='password'></label><br>";
+  wifiHtml += "<input type='submit' value='Guardar'>";
+  wifiHtml += "</form>";
+  wifiHtml += "<p><a href='/'>Volver al inicio</a></p>";
+  wifiHtml += "</body></html>";
+  return httpd_resp_sendstr(req, wifiHtml.c_str());
+}
+
 // Manejador HTTP para el streaming de video
 static esp_err_t stream_handler(httpd_req_t *req) {
   camera_fb_t * fb = NULL;
@@ -156,7 +187,7 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     }
     
     if(res == ESP_OK) {
-      res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
     }
     
     if(fb) {
@@ -331,6 +362,62 @@ static esp_err_t sd_file_handler(httpd_req_t *req) {
   file.close();
   httpd_resp_send_chunk(req, NULL, 0);
   return ESP_OK;
+}
+
+// Manejador para escanear redes WiFi
+static esp_err_t wifi_scan_handler(httpd_req_t *req) {
+  httpd_resp_set_type(req, "application/json");
+  
+  String networks = scanNetworks();
+  return httpd_resp_sendstr(req, networks.c_str());
+}
+
+// Manejador para guardar configuración WiFi
+static esp_err_t wifi_config_handler(httpd_req_t *req) {
+  char* buf;
+  size_t buf_len;
+  char ssid[32] = {0,};
+  char password[64] = {0,};
+  
+  buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1) {
+    buf = (char*)malloc(buf_len);
+    if(!buf) {
+      httpd_resp_send_500(req);
+      return ESP_FAIL;
+    }
+    
+    if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+      if (httpd_query_key_value(buf, "ssid", ssid, sizeof(ssid)) == ESP_OK &&
+          httpd_query_key_value(buf, "password", password, sizeof(password)) == ESP_OK) {
+        
+        // Actualizar configuración WiFi
+        if (updateWiFiConfig(ssid, password)) {
+          free(buf);
+          
+          // Responder con éxito y solicitar reinicio
+          httpd_resp_set_type(req, "application/json");
+          httpd_resp_sendstr(req, "{\"success\":true,\"message\":\"Configuración WiFi guardada. El dispositivo se reiniciará para aplicar los cambios.\"}");
+          
+          // Programar reinicio después de enviar la respuesta
+          delay(2000);
+          ESP.restart();
+          
+          return ESP_OK;
+        } else {
+          free(buf);
+          httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to save WiFi configuration");
+          return ESP_FAIL;
+        }
+      }
+    }
+    
+    free(buf);
+  }
+  
+  // Si llegamos aquí, significa que faltan parámetros o hay un error en la solicitud
+  httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Missing or invalid parameters");
+  return ESP_FAIL;
 }
 
 // Manejador para actualizar archivos web (requiere autenticación)
@@ -559,6 +646,33 @@ void startCameraServer() {
       .user_ctx  = NULL
     };
     httpd_register_uri_handler(camera_httpd, &admin_uri);
+    
+    // Configuración WiFi
+    httpd_uri_t wifi_uri = {
+      .uri       = "/wifi",
+      .method    = HTTP_GET,
+      .handler   = wifi_handler,
+      .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(camera_httpd, &wifi_uri);
+    
+    // Escanear redes WiFi
+    httpd_uri_t wifi_scan_uri = {
+      .uri       = "/scan-wifi",
+      .method    = HTTP_GET,
+      .handler   = wifi_scan_handler,
+      .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(camera_httpd, &wifi_scan_uri);
+    
+    // Configurar WiFi
+    httpd_uri_t wifi_config_uri = {
+      .uri       = "/config-wifi",
+      .method    = HTTP_GET,
+      .handler   = wifi_config_handler,
+      .user_ctx  = NULL
+    };
+    httpd_register_uri_handler(camera_httpd, &wifi_config_uri);
     
     // Actualizar archivos web
     httpd_uri_t update_web_uri = {

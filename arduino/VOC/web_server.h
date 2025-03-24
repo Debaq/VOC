@@ -9,6 +9,7 @@
 #include "auth.h"
 #include "camera.h"
 #include "sd_card.h"
+#include "wifi.h"
 #include <Update.h>
 #include <ESPmDNS.h>
 
@@ -25,7 +26,10 @@ static esp_err_t sd_file_handler(httpd_req_t *req);
 static esp_err_t css_handler(httpd_req_t *req);
 static esp_err_t js_handler(httpd_req_t *req);
 static esp_err_t admin_handler(httpd_req_t *req);
+static esp_err_t wifi_handler(httpd_req_t *req);
 static esp_err_t update_web_handler(httpd_req_t *req);
 static esp_err_t ota_update_handler(httpd_req_t *req);
+static esp_err_t wifi_scan_handler(httpd_req_t *req);
+static esp_err_t wifi_config_handler(httpd_req_t *req);
 
 #endif // WEB_SERVER_H

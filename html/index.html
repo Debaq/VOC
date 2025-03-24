@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOC - Otoscopio Educativo</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Utilizamos iconos CSS en lugar de Font Awesome para evitar dependencias externas -->
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span class="icon icon-camera"></span> VOC</h1>
+      <p class="subtitle">Visual Otoscopic Camera</p>
+    </header>
+    
+    <div class="tabs">
+      <div class="tab active" onclick="openTab('camera-tab')">
+        <span class="icon icon-camera"></span> Cámara
+      </div>
+      <div class="tab" onclick="openTab('gallery-tab')">
+        <span class="icon icon-image"></span> Galería
+      </div>
+      <div class="tab admin-tab" onclick="location.href='/admin'">
+        <span class="icon icon-cog"></span> Admin
+      </div>
+    </div>
+    
+    <div id="camera-tab" class="content active">
+      <div class="stream-container">
+        <img id="stream" src="/stream" alt="Transmisión en vivo">
+        <div class="stream-overlay" id="streamStatus">
+          <div class="stream-status">En vivo</div>
+        </div>
+      </div>
+      
+      <div class="controls">
+        <div class="control-group">
+          <button class="primary-btn" onclick="capturePhoto()">
+            <span class="icon icon-camera"></span> Tomar Foto
+          </button>
+          <button onclick="toggleStream(this)">
+            <span class="icon icon-pause" id="streamIcon"></span> <span id="streamText">Pausar</span>
+          </button>
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Resolución:</label>
+          <div class="button-group">
+            <button onclick="changeResolution('VGA')" class="small-btn">VGA</button>
+            <button onclick="changeResolution('SVGA')" class="small-btn">SVGA</button>
+            <button onclick="changeResolution('XGA')" class="small-btn">XGA</button>
+          </div>
+        </div>
+        
+        <div class="control-group">
+          <label class="control-label">Efectos:</label>
+          <div class="button-group">
+            <button onclick="toggleEffect('normal')" class="small-btn active" id="effect-normal">Normal</button>
+            <button onclick="toggleEffect('negative')" class="small-btn" id="effect-negative">Negativo</button>
+            <button onclick="toggleEffect('grayscale')" class="small-btn" id="effect-grayscale">Escala de grises</button>
+          </div>
+        </div>
+      </div>
+      
+      <div id="status" class="status-box"></div>
+    </div>
+    
+    <div id="gallery-tab" class="content">
+      <div class="gallery-controls">
+        <button onclick="loadGallery()" class="refresh-btn">
+          <span class="icon icon-refresh"></span> Actualizar Galería
+        </button>
+      </div>
+      
+      <div id="gallery" class="gallery">
+        <div class="gallery-loading">
+          <span class="icon icon-spinner"></span> Cargando imágenes...
+        </div>
+      </div>
+      
+      <div class="gallery-empty" id="galleryEmpty" style="display: none;">
+        <span class="icon icon-image" style="font-size: 2em; display: block; margin-bottom: 10px;"></span>
+        <p>No hay imágenes guardadas</p>
+        <p>Toma algunas fotos desde la pestaña Cámara</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal para visualizar la imagen completa -->
+  <div id="imageModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Vista previa</h3>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <img id="modalImg" class="modal-img" src="" alt="Imagen ampliada">
+      </div>
+      <div class="modal-footer">
+        <button onclick="downloadImage()" class="download-btn">
+          <span class="icon icon-download"></span> Descargar
+        </button>
+        <button onclick="deleteImage()" class="delete-btn">
+          <span class="icon icon-trash"></span> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast para notificaciones -->
+  <div id="toast" class="toast"></div>
+  
+  <script src="script.js"></script>
+</body>
+</html>

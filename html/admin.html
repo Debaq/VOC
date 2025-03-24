@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VOC - Administración</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Utilizamos iconos CSS en lugar de Font Awesome para evitar dependencias externas -->
+</head>
+<body>
+  <div class="container admin-container">
+    <header>
+      <h1><span class="icon icon-cog"></span> VOC Admin</h1>
+      <p class="subtitle">Área Administrativa</p>
+      <a href="/" class="back-btn"><span class="icon icon-arrow-left"></span> Volver al Portal</a>
+    </header>
+    
+    <div class="tabs admin-tabs">
+      <div class="tab active" onclick="openAdminTab('files-tab')">
+        <span class="icon icon-file"></span> Archivos Web
+      </div>
+      <div class="tab" onclick="openAdminTab('firmware-tab')">
+        <span class="icon icon-chip"></span> Firmware
+      </div>
+      <div class="tab" onclick="openAdminTab('wifi-tab')">
+        <span class="icon icon-wifi"></span> WiFi
+      </div>
+    </div>
+    
+    <div id="files-tab" class="content active">
+      <div class="admin-section">
+        <h2>Editor de Archivos Web</h2>
+        <p>Seleccione un archivo para editar:</p>
+        
+        <div class="file-browser">
+          <div class="file-list" id="fileList">
+            <div class="file-item" onclick="loadFile('/web/index.html')">
+              <i class="fas fa-file-code"></i> index.html
+            </div>
+            <div class="file-item" onclick="loadFile('/web/admin.html')">
+              <i class="fas fa-file-code"></i> admin.html
+            </div>
+            <div class="file-item" onclick="loadFile('/web/styles.css')">
+              <i class="fas fa-file-code"></i> styles.css
+            </div>
+            <div class="file-item" onclick="loadFile('/web/script.js')">
+              <i class="fas fa-file-code"></i> script.js
+            </div>
+            <div class="file-item" onclick="loadFile('/web/fallback.html')">
+              <i class="fas fa-file-code"></i> fallback.html
+            </div>
+          </div>
+        </div>
+        
+        <div class="file-editor">
+          <div class="editor-header">
+            <h3 id="currentFileName">Ningún archivo seleccionado</h3>
+          </div>
+          <textarea id="fileContent" class="code-editor" placeholder="Seleccione un archivo para editar su contenido"></textarea>
+          <div class="editor-actions">
+            <button onclick="saveFile()" class="save-btn" disabled id="saveButton">
+              <i class="fas fa-save"></i> Guardar Cambios
+            </button>
+            <button onclick="resetFile()" class="reset-btn" disabled id="resetButton">
+              <i class="fas fa-undo"></i> Descartar Cambios
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div id="firmware-tab" class="content">
+      <div class="admin-section">
+        <h2>Actualización de Firmware (OTA)</h2>
+        
+        <div class="firmware-upload-section">
+          <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <p>Seleccione el archivo .bin con el nuevo firmware para actualizar el dispositivo. 
+            Este proceso puede tardar varios minutos y el dispositivo se reiniciará automáticamente.</p>
+          </div>
+          
+          <div class="firmware-dropzone" id="firmwareDropzone">
+            <i class="fas fa-file-upload"></i>
+            <p>Arrastre el archivo .bin aquí o haga clic para seleccionar</p>
+            <input type="file" id="firmwareFile" accept=".bin" style="display: none;">
+          </div>
+          
+          <div class="firmware-info" id="firmwareInfo" style="display: none;">
+            <div class="selected-file">
+              <i class="fas fa-file-code"></i>
+              <span id="selectedFileName">firmware.bin</span>
+              <span id="selectedFileSize">(1.2 MB)</span>
+            </div>
+          </div>
+          
+          <div class="progress-container" style="display: none;" id="progressContainer">
+            <div class="progress-bar">
+              <div class="progress" id="progressBar"></div>
+            </div>
+            <div class="progress-info">
+              <span id="progressPercent">0%</span>
+              <span id="progressText">Subiendo...</span>
+            </div>
+          </div>
+          
+          <div class="firmware-actions">
+            <button onclick="uploadFirmware()" class="upload-btn" disabled id="uploadButton">
+              <i class="fas fa-upload"></i> Actualizar Firmware
+            </button>
+            <button onclick="cancelFirmwareUpload()" class="cancel-btn" style="display: none;" id="cancelButton">
+              <i class="fas fa-times"></i> Cancelar
+            </button>
+          </div>
+        </div>
+        
+        <div id="otaStatus" class="ota-status"></div>
+      </div>
+    </div>
+    
+    <div id="wifi-tab" class="content">
+      <div class="admin-section">
+        <h2>Configuración WiFi</h2>
+        
+        <div class="wifi-status">
+          <div class="status-header">
+            <h3>Estado Actual</h3>
+            <button onclick="scanNetworks()" class="scan-btn">
+              <i class="fas fa-sync"></i> Buscar Redes
+            </button>
+          </div>
+          
+          <div class="status-content">
+            <div class="status-item">
+              <span class="status-label">Modo:</span>
+              <span class="status-value" id="wifiMode">Punto de Acceso</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">SSID:</span>
+              <span class="status-value" id="wifiSSID">VOC</span>
+            </div>
+            <div class="status-item">
+              <span class="status-label">IP:</span>
+              <span class="status-value" id="wifiIP">192.168.4.1</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="wifi-config">
+          <h3>Configuración de Red</h3>
+          <form id="wifiForm">
+            <div class="form-group">
+              <label for="wifiNetworkSelect">Red WiFi:</label>
+              <select id="wifiNetworkSelect" onchange="handleNetworkSelection()">
+                <option value="" disabled selected>Seleccionar red...</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="ssidInput">SSID:</label>
+              <input type="text" id="ssidInput" name="ssid" placeholder="Nombre de red">
+            </div>
+            
+            <div class="form-group">
+              <label for="passwordInput">Contraseña:</label>
+              <div class="password-input">
+                <input type="password" id="passwordInput" name="password" placeholder="Contraseña de red">
+                <button type="button" class="toggle-password" onclick="togglePasswordVisibility()">
+                  <i class="fas fa-eye" id="passwordToggleIcon"></i>
+                </button>
+              </div>
+            </div>
+            
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="apModeToggle" name="apMode">
+              <label for="apModeToggle">Mantener modo Punto de Acceso activo</label>
+              <div class="tooltip">
+                <i class="fas fa-question-circle"></i>
+                <span class="tooltip-text">Si se activa, el dispositivo mantendrá el punto de acceso 'VOC' incluso cuando esté conectado a otra red WiFi</span>
+              </div>
+            </div>
+            
+            <div class="form-actions">
+              <button type="button" onclick="saveWifiConfig()" class="primary-btn">
+                <i class="fas fa-save"></i> Guardar Configuración
+              </button>
+              <button type="button" onclick="resetWifiForm()" class="secondary-btn">
+                <i class="fas fa-undo"></i> Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+        
+        <div id="networkList" class="network-list" style="display: none;">
+          <h3>Redes Disponibles</h3>
+          <div class="network-list-content" id="networkListContent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal de confirmación -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content confirm-modal">
+      <div class="modal-header">
+        <h3 id="confirmTitle">Confirmar Acción</h3>
+        <span class="close" onclick="closeConfirmModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p id="confirmMessage">¿Está seguro que desea realizar esta acción?</p>
+      </div>
+      <div class="modal-footer">
+        <button onclick="confirmAction()" class="confirm-btn">Confirmar</button>
+        <button onclick="closeConfirmModal()" class="cancel-btn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Toast para notificaciones -->
+  <div id="toast" class="toast"></div>
+  
+  <script src="script.js"></script>
+</body>
+</html>
