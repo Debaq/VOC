@@ -143,8 +143,8 @@ static esp_err_t wifi_handler(httpd_req_t *req) {
   return httpd_resp_sendstr(req, wifiHtml.c_str());
 }
 
-// Manejador HTTP para el streaming de video
 static esp_err_t stream_handler(httpd_req_t *req) {
+  Serial.println("Solicitud de stream recibida");
   camera_fb_t * fb = NULL;
   esp_err_t res = ESP_OK;
   size_t _jpg_buf_len = 0;
@@ -156,17 +156,26 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     last_frame = esp_timer_get_time();
   }
 
-  res = httpd_resp_set_type(req, "multipart/x-mixed-replace;boundary=123456789000000000000987654321");
+  res = httpd_resp_set_type(req, "multipart/x-mixed-replace;boundary=frame");
   if(res != ESP_OK) {
+    Serial.println("Error al configurar el tipo de respuesta HTTP");
     return res;
   }
 
+  Serial.println("Iniciando bucle de streaming");
+  
+  int frame_count = 0;
   while(true) {
+    Serial.print(".");  // Indicador de actividad menos verboso
+    if (frame_count % 10 == 0) Serial.println(); // Nueva línea cada 10 frames
+    
     fb = esp_camera_fb_get();
     if (!fb) {
       Serial.println("Error al capturar frame para streaming");
       res = ESP_FAIL;
     } else {
+      frame_count++;
+      
       if(fb->format != PIXFORMAT_JPEG) {
         bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
         esp_camera_fb_return(fb);
@@ -182,12 +191,13 @@ static esp_err_t stream_handler(httpd_req_t *req) {
     }
     
     if(res == ESP_OK) {
-      size_t hlen = snprintf((char *)part_buf, 64, "\r\n--123456789000000000000987654321\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", _jpg_buf_len);
+      size_t hlen = snprintf((char *)part_buf, 64, "\r\n--frame\r\nContent-Type: image/jpeg\r\nContent-Length: %u\r\n\r\n", _jpg_buf_len);
+
       res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
     }
     
     if(res == ESP_OK) {
-res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
+      res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
     }
     
     if(fb) {
@@ -200,18 +210,15 @@ res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
     }
     
     if(res != ESP_OK) {
+      Serial.println("Error en stream, finalizando");
       break;
     }
     
-    int64_t fr_end = esp_timer_get_time();
-    int64_t frame_time = fr_end - last_frame;
-    last_frame = fr_end;
-    frame_time /= 1000; // Convertir a ms
-    
-    // Limitar la velocidad de frames para no sobrecargar la red
-    delay(50); // 20 FPS máximo
+    // Limitar velocidad para pruebas y evitar sobrecarga
+    delay(100);
   }
   
+  Serial.println("Stream finalizado");
   return res;
 }
 
@@ -563,6 +570,19 @@ static esp_err_t ota_update_handler(httpd_req_t *req) {
   return ESP_OK;
 }
 
+// Manejador HTTP para página de prueba simple
+static esp_err_t test_handler(httpd_req_t *req) {
+  const char* test_html = "<!DOCTYPE html><html><head><title>Test ESP32-CAM</title></head><body>"
+                          "<h1>Prueba de Streaming</h1>"
+                          "<img src=\"http://192.168.4.1:81/stream\" width=\"640\" height=\"480\">"
+                          "</body></html>";
+  
+  httpd_resp_set_type(req, "text/html");
+  httpd_resp_send(req, test_html, strlen(test_html));
+  return ESP_OK;
+}
+
+
 // Inicializar servidores HTTP
 void startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -584,6 +604,18 @@ void startCameraServer() {
     };
     httpd_register_uri_handler(camera_httpd, &index_uri);
     
+
+
+// Página de prueba simple
+httpd_uri_t test_uri = {
+  .uri       = "/test",
+  .method    = HTTP_GET,
+  .handler   = test_handler,
+  .user_ctx  = NULL
+};
+httpd_register_uri_handler(camera_httpd, &test_uri);
+
+
     // Capturar foto
     httpd_uri_t capture_uri = {
       .uri       = "/capture",

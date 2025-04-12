@@ -15,6 +15,6 @@ bool initCamera();
 String capturePhotoSaveSD();
 
 // Callback para enviar las imágenes JPEG por chunks
-static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size_t len);
+size_t jpg_encode_stream(void * arg, size_t index, const void* data, size_t len);
 
 #endif // CAMERA_H

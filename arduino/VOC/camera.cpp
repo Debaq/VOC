@@ -2,12 +2,17 @@
 
 #include "camera.h"
 #include "sd_card.h"
+#include "Arduino.h"
+#include "esp_camera.h"
+#include "config.h"
 
 // Variables externas declaradas en config.h
 extern uint8_t tempBuffer[BUFFER_SIZE];
 
 // Inicialización de la cámara
 bool initCamera() {
+  Serial.println("Inicializando cámara...");
+  
   camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
   config.ledc_timer = LEDC_TIMER_0;
@@ -30,39 +35,58 @@ bool initCamera() {
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
   
-  // Configuración inicial con mejor calidad
-  config.frame_size = FRAMESIZE_SVGA;
+  // Usar una resolución más baja para diagnóstico
+  config.frame_size = FRAMESIZE_QVGA; // Cambiar a resolución más baja (320x240)
   config.jpeg_quality = 12; // 0-63 (menor valor = mayor calidad)
-  config.fb_count = 1;
+  config.fb_count = 2; // Aumentar a 2 para mejor estabilidad de streaming
   
   // Inicializar la cámara
+  Serial.println("Aplicando configuración de la cámara...");
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
-    Serial.printf("El inicio de la cámara falló con error 0x%x", err);
+    Serial.printf("El inicio de la cámara falló con error 0x%x\n", err);
     return false;
   }
   
+  Serial.println("Cámara inicializada con éxito");
+  
+  // Probar captura de un frame
+  Serial.println("Probando captura de frame...");
+  camera_fb_t *fb = esp_camera_fb_get();
+  if (!fb) {
+    Serial.println("Error: Fallo al capturar frame de prueba");
+    return false;
+  }
+  
+  Serial.printf("Frame de prueba capturado: %d bytes\n", fb->len);
+  esp_camera_fb_return(fb);
+  
   // Ajustes adicionales de la cámara
   sensor_t * s = esp_camera_sensor_get();
-  s->set_brightness(s, 0);     // -2 a 2
-  s->set_contrast(s, 0);       // -2 a 2
-  s->set_saturation(s, 0);     // -2 a 2
-  s->set_special_effect(s, 0); // 0 = No Effect, 1 = Negative, 2 = Grayscale...
-  s->set_whitebal(s, 1);       // 0 = disable, 1 = enable
-  s->set_awb_gain(s, 1);       // 0 = disable, 1 = enable
-  s->set_wb_mode(s, 0);        // 0 a 4 - Auto, Sunny, Cloudy, Office, Home
-  s->set_exposure_ctrl(s, 1);  // 0 = disable, 1 = enable
-  s->set_aec2(s, 0);           // 0 = disable, 1 = enable
-  s->set_gain_ctrl(s, 1);      // 0 = disable, 1 = enable
-  s->set_agc_gain(s, 0);       // 0 a 30
-  s->set_gainceiling(s, (gainceiling_t)0);  // 0 a 6
-  s->set_bpc(s, 0);            // 0 = disable, 1 = enable
-  s->set_wpc(s, 1);            // 0 = disable, 1 = enable
-  s->set_raw_gma(s, 1);        // 0 = disable, 1 = enable
-  s->set_lenc(s, 1);           // 0 = disable, 1 = enable
-  s->set_hmirror(s, 0);        // 0 = disable, 1 = enable
-  s->set_vflip(s, 0);          // 0 = disable, 1 = enable
-  s->set_dcw(s, 1);            // 0 = disable, 1 = enable
+  if (s) {
+    Serial.println("Aplicando ajustes adicionales a la cámara");
+    s->set_brightness(s, 0);     // -2 a 2
+    s->set_contrast(s, 0);       // -2 a 2
+    s->set_saturation(s, 0);     // -2 a 2
+    s->set_special_effect(s, 0); // 0 = No Effect, 1 = Negative, 2 = Grayscale...
+    s->set_whitebal(s, 1);       // 0 = disable, 1 = enable
+    s->set_awb_gain(s, 1);       // 0 = disable, 1 = enable
+    s->set_wb_mode(s, 0);        // 0 a 4 - Auto, Sunny, Cloudy, Office, Home
+    s->set_exposure_ctrl(s, 1);  // 0 = disable, 1 = enable
+    s->set_aec2(s, 0);           // 0 = disable, 1 = enable
+    s->set_gain_ctrl(s, 1);      // 0 = disable, 1 = enable
+    s->set_agc_gain(s, 0);       // 0 a 30
+    s->set_gainceiling(s, (gainceiling_t)0);  // 0 a 6
+    s->set_bpc(s, 0);            // 0 = disable, 1 = enable
+    s->set_wpc(s, 1);            // 0 = disable, 1 = enable
+    s->set_raw_gma(s, 1);        // 0 = disable, 1 = enable
+    s->set_lenc(s, 1);           // 0 = disable, 1 = enable
+    s->set_hmirror(s, 0);        // 0 = disable, 1 = enable
+    s->set_vflip(s, 0);          // 0 = disable, 1 = enable
+    s->set_dcw(s, 1);            // 0 = disable, 1 = enable
+  } else {
+    Serial.println("Advertencia: No se pudo obtener el sensor de la cámara");
+  }
   
   return true;
 }
@@ -94,7 +118,7 @@ String capturePhotoSaveSD() {
 }
 
 // Callback para enviar las imágenes JPEG por chunks
-static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size_t len) {
+size_t jpg_encode_stream(void * arg, size_t index, const void* data, size_t len) {
   jpg_chunking_t *j = (jpg_chunking_t *)arg;
   if(!index) {
     httpd_resp_set_type(j->req, "image/jpeg");
